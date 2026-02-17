@@ -240,7 +240,12 @@ async function confirmCode() {
   const code = pendingCode;
   hideCodePreview();
 
-  addSystemMessage('Running code...');
+  const hasQuickload = code.includes('ql:quickload');
+  if (hasQuickload) {
+    addSystemMessage('Downloading and compiling libraries... this may take a few minutes on first run.');
+  } else {
+    addSystemMessage('Running code...');
+  }
 
   try {
     const resp = await fetch('/api/confirm', {
