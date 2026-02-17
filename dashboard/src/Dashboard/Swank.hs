@@ -9,8 +9,9 @@ module Dashboard.Swank
   , isConnected
   ) where
 
+import Control.Concurrent.MVar
 import Control.Concurrent.STM
-import Control.Exception (try, SomeException, catch)
+import Control.Exception (try, SomeException, catch, bracket_)
 import qualified Data.ByteString as BS
 import Data.Text (Text)
 import qualified Data.Text as T
@@ -23,6 +24,7 @@ import Dashboard.SwankProtocol
 data SwankConnection = SwankConnection
   { swankSocket  :: TVar (Maybe Socket)
   , swankCounter :: TVar Int
+  , swankLock    :: MVar ()  -- mutex: only one eval at a time
   }
 
 -- | Connect to a Swank server at the given host and port.
@@ -49,7 +51,8 @@ connectSwank host port = do
           Just _ -> do
             socketVar <- newTVarIO (Just sock)
             counterVar <- newTVarIO 2  -- counter starts at 2 since we used 1
-            return $ SwankConnection socketVar counterVar
+            lock <- newMVar ()
+            return $ SwankConnection socketVar counterVar lock
   case result of
     Left (e :: SomeException) ->
       return $ Left $ "Failed to connect to Swank: " <> T.pack (show e)
@@ -76,31 +79,34 @@ isConnected conn = do
     Nothing -> False
 
 -- | Evaluate a Lisp expression via Swank and return the result.
+-- Uses a lock to ensure only one eval runs at a time, preventing
+-- response mixups when multiple callers share the connection.
 swankEval :: SwankConnection -> Text -> IO (Either Text Text)
 swankEval conn code = do
   mSock <- readTVarIO (swankSocket conn)
   case mSock of
     Nothing -> return $ Left "Not connected to Swank"
-    Just sock -> do
-      counter <- atomically $ do
-        c <- readTVar (swankCounter conn)
-        writeTVar (swankCounter conn) (c + 1)
-        return c
-      let msg = makeEvalForm code counter
-      result <- try $ do
-        sendAll sock (encodeMessage msg)
-        waitForReturn sock
-      case result of
-        Left (e :: SomeException) -> do
-          atomically $ writeTVar (swankSocket conn) Nothing
-          return $ Left $ "Swank eval error: " <> T.pack (show e)
-        Right response ->
-          case parseEvalResult response of
-            Right (output, value) ->
-              let combined = if T.null output then value
-                            else output <> "\n" <> value
-              in return $ Right combined
-            Left err -> return $ Left err
+    Just sock ->
+      bracket_ (takeMVar (swankLock conn)) (putMVar (swankLock conn) ()) $ do
+        counter <- atomically $ do
+          c <- readTVar (swankCounter conn)
+          writeTVar (swankCounter conn) (c + 1)
+          return c
+        let msg = makeEvalForm code counter
+        result <- try $ do
+          sendAll sock (encodeMessage msg)
+          waitForReturn sock
+        case result of
+          Left (e :: SomeException) -> do
+            atomically $ writeTVar (swankSocket conn) Nothing
+            return $ Left $ "Swank eval error: " <> T.pack (show e)
+          Right response ->
+            case parseEvalResult response of
+              Right (output, value) ->
+                let combined = if T.null output then value
+                              else output <> "\n" <> value
+                in return $ Right combined
+              Left err -> return $ Left err
 
 -- | Read messages from the socket until we get a :return message.
 waitForReturn :: Socket -> IO Text
