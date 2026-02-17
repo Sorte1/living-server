@@ -349,7 +349,11 @@ readQuotedStr ('"':rest) = ([], rest)
 readQuotedStr (c:rest) =
   let (s, r) = readQuotedStr rest in (c:s, r)
 
--- | Wrap Lisp code in (progn ...) so that swank:eval-and-grab-output
--- evaluates all top-level forms, not just the first one.
+-- | Wrap Lisp code for safe eval via Swank.
+-- 1. (progn ...) so all top-level forms are evaluated, not just the first.
+-- 2. (handler-bind ((warning #'muffle-warning)) ...) so compilation warnings
+--    during ql:quickload don't activate the Swank debugger (which would hang
+--    waiting for user input we never send).
 wrapInProgn :: Text -> Text
-wrapInProgn code = "(progn " <> code <> ")"
+wrapInProgn code =
+  "(handler-bind ((warning #'muffle-warning)) (progn " <> code <> "))"

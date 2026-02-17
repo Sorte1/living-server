@@ -6,6 +6,7 @@ module Dashboard.SwankProtocol
   , makeEvalForm
   , makeConnectionInfoForm
   , parseEvalResult
+  , extractQuotedStrings
   ) where
 
 import qualified Data.ByteString as BS
@@ -37,7 +38,7 @@ decodeMessage bs
            [(len, "")] ->
              if BS.length rest >= len
                then let (payload, remaining) = BS.splitAt len rest
-                    in Just (TE.decodeUtf8 payload, remaining)
+                    in Just (TE.decodeLatin1 payload, remaining)
                else Nothing
            _ -> Nothing
 
