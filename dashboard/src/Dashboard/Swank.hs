@@ -96,8 +96,8 @@ swankEval conn code = do
         let msg = makeEvalForm code counter
         result <- try $ do
           sendAll sock (encodeMessage msg)
-          -- 120 second timeout for long operations like ql:quickload
-          mResp <- timeout 120000000 $ waitForReturn sock BS.empty
+          -- 5 minute timeout for long operations like ql:quickload
+          mResp <- timeout 300000000 $ waitForReturn sock BS.empty
           case mResp of
             Nothing -> error "Swank eval timed out after 120 seconds"
             Just response -> return response
