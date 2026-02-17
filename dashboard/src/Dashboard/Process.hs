@@ -12,11 +12,9 @@ module Dashboard.Process
 import Control.Concurrent (threadDelay)
 import Control.Concurrent.STM
 import Control.Exception (try, SomeException, catch)
-import Data.List (intercalate, isPrefixOf)
 import Data.Text (Text)
 import qualified Data.Text as T
 import System.Directory (getCurrentDirectory)
-import System.Environment (getEnvironment)
 import System.FilePath ((</>))
 import System.Exit (ExitCode(..))
 import System.Process
@@ -47,16 +45,10 @@ startLispProcess lp = do
     then return $ Left "Lisp process is already running"
     else do
       let bootScript = lpBaseDir lp </> "server" </> "boot.lisp"
-      -- Ensure SBCL uses the system C compiler, not any wasm SDK clang
-      parentEnv <- getEnvironment
-      let childEnv = setEnvVar "CC" "/usr/bin/clang"
-                   $ fixPath parentEnv
       result <- try $ createProcess (proc "sbcl"
             [ "--non-interactive"
             , "--load", bootScript
             ])
-            { env = Just childEnv
-            }
       case result of
         Left (e :: SomeException) ->
           return $ Left $ "Failed to start SBCL: " <> T.pack (show e)
@@ -93,32 +85,3 @@ isLispRunning lp = do
         Just _  -> do
           atomically $ writeTVar (lpHandle lp) Nothing
           return False
-
--- | Fix PATH to prefer system compilers over wasm SDK.
-fixPath :: [(String, String)] -> [(String, String)]
-fixPath = map fixEntry
-  where
-    fixEntry ("PATH", v) =
-      let parts = splitOn ':' v
-          filtered = filter (not . isWasmPath) parts
-          prefixed = "/usr/bin" : "/usr/local/bin" : "/opt/homebrew/bin" : filtered
-      in ("PATH", intercalate ":" prefixed)
-    fixEntry kv = kv
-
-    isWasmPath p = "wasi-sdk" `isInfixOfStr` p || ".ghc-wasm" `isInfixOfStr` p
-
-    isInfixOfStr needle haystack = any (isPrefixOf needle) (tails' haystack)
-    tails' [] = [[]]
-    tails' s@(_:xs) = s : tails' xs
-
-    splitOn _ [] = [""]
-    splitOn sep (c:cs)
-      | c == sep  = "" : splitOn sep cs
-      | otherwise = case splitOn sep cs of
-                      (h:t) -> (c:h) : t
-                      []    -> [[c]]
-
--- | Set or replace an environment variable.
-setEnvVar :: String -> String -> [(String, String)] -> [(String, String)]
-setEnvVar key val env' =
-  (key, val) : filter (\(k, _) -> k /= key) env'

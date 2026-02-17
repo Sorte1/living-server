@@ -4,11 +4,6 @@ set -e
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 cd "$SCRIPT_DIR"
 
-# Ensure system clang is preferred over any wasm SDK clang
-if [ -d "/usr/bin" ]; then
-  export PATH="/usr/bin:/usr/local/bin:/opt/homebrew/bin:$PATH"
-fi
-
 # Check for ANTHROPIC_API_KEY
 if [ -z "$ANTHROPIC_API_KEY" ]; then
   echo "Warning: ANTHROPIC_API_KEY is not set. Claude integration will not work."
