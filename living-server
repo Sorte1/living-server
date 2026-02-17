@@ -1,0 +1,57 @@
+#!/bin/bash
+set -e
+
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+cd "$SCRIPT_DIR"
+
+# Ensure system clang is preferred over any wasm SDK clang
+if [ -d "/usr/bin" ]; then
+  export PATH="/usr/bin:/usr/local/bin:/opt/homebrew/bin:$PATH"
+fi
+
+# Check for ANTHROPIC_API_KEY
+if [ -z "$ANTHROPIC_API_KEY" ]; then
+  echo "Warning: ANTHROPIC_API_KEY is not set. Claude integration will not work."
+  echo "Set it with: export ANTHROPIC_API_KEY=your-key-here"
+  echo ""
+fi
+
+# Check dependencies
+if ! command -v sbcl &> /dev/null; then
+  echo "Error: sbcl not found. Install SBCL first."
+  exit 1
+fi
+
+if ! command -v cabal &> /dev/null; then
+  echo "Error: cabal not found. Install GHC + cabal first."
+  exit 1
+fi
+
+echo "=== Living Server ==="
+echo ""
+
+# Build the Haskell dashboard if needed
+echo "Building dashboard..."
+cd "$SCRIPT_DIR/dashboard"
+cabal build 2>&1 | tail -5
+DASHBOARD_BIN=$(cabal list-bin dashboard 2>/dev/null)
+
+if [ -z "$DASHBOARD_BIN" ] || [ ! -f "$DASHBOARD_BIN" ]; then
+  echo "Error: Dashboard build failed."
+  exit 1
+fi
+
+echo "Dashboard built successfully."
+echo ""
+
+# Run the dashboard (which spawns SBCL internally)
+cd "$SCRIPT_DIR"
+echo "Starting Living Server..."
+echo "Dashboard: http://localhost:8080"
+echo "User Server: http://localhost:3001"
+echo ""
+
+# Open browser after a short delay
+(sleep 3 && open "http://localhost:8080" 2>/dev/null || xdg-open "http://localhost:8080" 2>/dev/null) &
+
+exec "$DASHBOARD_BIN"

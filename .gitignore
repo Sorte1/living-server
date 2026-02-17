@@ -1,0 +1,18 @@
+# Haskell
+dashboard/dist-newstyle/
+*.hi
+*.o
+*.dyn_hi
+*.dyn_o
+
+# Common Lisp
+*.fasl
+*.fas
+*.lib
+*.lx64fsl
+
+# Generated route files (tracked individually as they're created)
+# server/generated/routes/*.lisp
+
+# OS
+.DS_Store

@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Living Server</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="layout">
+    <!-- Sidebar -->
+    <aside class="sidebar">
+      <div class="sidebar-header">
+        <h1>Living Server</h1>
+      </div>
+
+      <!-- Server Status -->
+      <div class="panel">
+        <h2>Server Status</h2>
+        <div class="status-indicator">
+          <span id="status-dot" class="dot dot-off"></span>
+          <span id="status-text">Checking...</span>
+        </div>
+        <div class="status-details">
+          <div>HTTP: <code>localhost:3001</code></div>
+          <div>Swank: <code>localhost:4005</code></div>
+        </div>
+        <div class="server-controls">
+          <button id="btn-start" onclick="serverAction('start')">Start</button>
+          <button id="btn-stop" onclick="serverAction('stop')">Stop</button>
+          <button id="btn-restart" onclick="serverAction('restart')">Restart</button>
+        </div>
+      </div>
+
+      <!-- Routes Panel -->
+      <div class="panel">
+        <h2>Routes</h2>
+        <div id="routes-list" class="routes-list">
+          <div class="empty-state">No routes loaded</div>
+        </div>
+      </div>
+    </aside>
+
+    <!-- Main Chat Area -->
+    <main class="chat-area">
+      <div id="messages" class="messages">
+        <div class="welcome-message">
+          <h2>Welcome to Living Server</h2>
+          <p>Describe what you want to build and I'll generate the code for your live Lisp server.</p>
+          <p>Try: "Add a GET route /hello that returns Hello World"</p>
+        </div>
+      </div>
+
+      <!-- Code Preview (shown after Claude responds) -->
+      <div id="code-preview" class="code-preview hidden">
+        <div class="code-preview-header">
+          <h3>Generated Code</h3>
+          <div class="code-preview-actions">
+            <button class="btn-run" onclick="confirmCode()">Run</button>
+            <button class="btn-cancel" onclick="cancelCode()">Cancel</button>
+          </div>
+        </div>
+        <pre><code id="code-content"></code></pre>
+      </div>
+
+      <!-- Input -->
+      <div class="input-area">
+        <textarea id="user-input" placeholder="Describe what you want to build..." rows="1"
+                  onkeydown="handleKeydown(event)"></textarea>
+        <button id="btn-send" onclick="sendMessage()">Send</button>
+      </div>
+    </main>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
