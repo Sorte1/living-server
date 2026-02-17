@@ -24,6 +24,12 @@ Swank is the protocol that powers SLIME (the Emacs Lisp IDE). It lets you connec
 
 Living Server uses Swank as the bridge between the dashboard and the Lisp server. The dashboard sends generated code over a TCP socket, the Lisp process evaluates it, and the result comes back -- all while the HTTP server continues handling requests. This isn't a custom protocol or a fragile hack. It's the same battle-tested mechanism that Lisp developers have used for decades to work with production systems.
 
+### Full introspection without an API
+
+Because Swank gives the dashboard a live REPL into the server process, it can query internal state directly -- no management endpoints needed. The route panel in the dashboard works by evaluating `(living-server:list-routes)` over Swank, which introspects ningle's internal route mapper and returns every registered route with its methods and path.
+
+In a typical web stack, you'd need to build and maintain a separate admin API just to answer "what routes exist?" Here, any Lisp function is callable and any variable is inspectable. The user server doesn't need to know it's being observed -- it just runs, and the dashboard reaches in through Swank whenever it needs to know something. This is a direct consequence of Lisp's image-based model: the entire program state is always accessible and queryable from the outside.
+
 ## Architecture
 
 Two completely separate OS processes, connected by Swank:
