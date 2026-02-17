@@ -1,5 +1,7 @@
 # Living Server
 
+> **Disclaimer:** this README is AI generated and the project is a proof of concept.
+
 A system where an LLM generates and hot-loads code into a running Common Lisp web server in real-time. You describe what you want in plain English, Claude generates the Lisp code, and it gets evaluated directly into the running image -- no restart, no deploy, no waiting. The server updates instantly.
 
 ## How is this possible?
