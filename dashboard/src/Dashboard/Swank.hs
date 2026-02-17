@@ -43,7 +43,7 @@ connectSwank host port = do
         let initMsg = makeConnectionInfoForm 1
         sendAll sock (encodeMessage initMsg)
         -- Read the connection-info response with a timeout
-        mResponse <- timeout 10000000 $ readSwankMessages sock  -- 10 seconds
+        mResponse <- timeout 10000000 $ waitForReturn sock BS.empty  -- 10 seconds
         case mResponse of
           Nothing -> do
             close sock
@@ -81,6 +81,7 @@ isConnected conn = do
 -- | Evaluate a Lisp expression via Swank and return the result.
 -- Uses a lock to ensure only one eval runs at a time, preventing
 -- response mixups when multiple callers share the connection.
+-- Times out after 120 seconds to prevent hanging forever.
 swankEval :: SwankConnection -> Text -> IO (Either Text Text)
 swankEval conn code = do
   mSock <- readTVarIO (swankSocket conn)
@@ -95,7 +96,11 @@ swankEval conn code = do
         let msg = makeEvalForm code counter
         result <- try $ do
           sendAll sock (encodeMessage msg)
-          waitForReturn sock
+          -- 120 second timeout for long operations like ql:quickload
+          mResp <- timeout 120000000 $ waitForReturn sock BS.empty
+          case mResp of
+            Nothing -> error "Swank eval timed out after 120 seconds"
+            Just response -> return response
         case result of
           Left (e :: SomeException) -> do
             atomically $ writeTVar (swankSocket conn) Nothing
@@ -109,25 +114,28 @@ swankEval conn code = do
               Left err -> return $ Left err
 
 -- | Read messages from the socket until we get a :return message.
-waitForReturn :: Socket -> IO Text
-waitForReturn sock = do
-  msgs <- readSwankMessages sock
-  case filter (T.isInfixOf ":return") msgs of
-    (m:_) -> return m
-    []    -> waitForReturn sock  -- keep reading
+-- Properly buffers partial data across recv calls so large messages
+-- (e.g. from ql:quickload compilation output) aren't dropped.
+waitForReturn :: Socket -> BS.ByteString -> IO Text
+waitForReturn sock buffer = do
+  -- Read more data from socket
+  chunk <- recv sock 65536
+  if BS.null chunk
+    then error "Swank connection closed"
+    else do
+      let allData = buffer <> chunk
+          (msgs, remaining) = decodeAllMessages allData
+      case filter (T.isInfixOf ":return") msgs of
+        (m:_) -> return m
+        []    -> waitForReturn sock remaining
 
--- | Read available Swank messages from the socket.
-readSwankMessages :: Socket -> IO [Text]
-readSwankMessages sock = do
-  bs <- recv sock 65536
-  if BS.null bs
-    then return []
-    else return $ decodeMessages bs
-
--- | Decode all complete messages from a buffer.
-decodeMessages :: BS.ByteString -> [Text]
-decodeMessages bs
-  | BS.null bs = []
+-- | Decode all complete messages from a buffer, returning decoded messages
+-- and any remaining (partial) bytes.
+decodeAllMessages :: BS.ByteString -> ([Text], BS.ByteString)
+decodeAllMessages bs
+  | BS.null bs = ([], bs)
   | otherwise = case decodeMessage bs of
-      Just (msg, rest) -> msg : decodeMessages rest
-      Nothing -> []
+      Just (msg, rest) ->
+        let (more, remaining) = decodeAllMessages rest
+        in (msg : more, remaining)
+      Nothing -> ([], bs)  -- partial message, keep bytes for next read
