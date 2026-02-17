@@ -8,6 +8,7 @@ let isGenerating = false;
 document.addEventListener('DOMContentLoaded', () => {
   checkStatus();
   loadRoutes();
+  loadHistory();
   autoResizeTextarea();
 
   // Poll status and routes
@@ -57,13 +58,42 @@ async function serverAction(action) {
   buttons.forEach(b => b.disabled = true);
 
   try {
+    addSystemMessage(`Server ${action}...`);
     const resp = await fetch(`/api/${action}`, { method: 'POST' });
     const data = await resp.json();
     if (!data.success) {
       addSystemMessage('Server action failed: ' + (data.error || 'Unknown error'), true);
+      buttons.forEach(b => b.disabled = false);
+      return;
     }
-    await checkStatus();
-    await loadRoutes();
+
+    if (action === 'restart' || action === 'start') {
+      // Poll until connected (SBCL takes a few seconds to start)
+      addSystemMessage('Waiting for server to come up...');
+      let connected = false;
+      for (let i = 0; i < 15; i++) {
+        await new Promise(r => setTimeout(r, 2000));
+        try {
+          const statusResp = await fetch('/api/status');
+          const statusData = await statusResp.json();
+          await checkStatus();
+          if (statusData.connected) {
+            connected = true;
+            break;
+          }
+        } catch { /* keep trying */ }
+      }
+      if (connected) {
+        addSystemMessage('Server is running and connected.');
+        await loadRoutes();
+      } else {
+        addSystemMessage('Server started but Swank connection not yet established. It may still be loading.', true);
+      }
+    } else {
+      await checkStatus();
+      await loadRoutes();
+      addSystemMessage(`Server ${action} completed.`);
+    }
   } catch (err) {
     addSystemMessage('Failed to contact dashboard: ' + err.message, true);
   }
@@ -104,6 +134,30 @@ function testRoute(method, path) {
     window.open(`http://localhost:3001${path}`, '_blank');
   } else {
     addSystemMessage(`Testing ${method} ${path} - use curl or a REST client for non-GET routes`);
+  }
+}
+
+// --- Chat History ---
+
+async function loadHistory() {
+  try {
+    const resp = await fetch('/api/history');
+    const data = await resp.json();
+    if (data.messages && data.messages.length > 0) {
+      // Remove welcome message
+      const welcome = document.querySelector('.welcome-message');
+      if (welcome) welcome.remove();
+
+      data.messages.forEach(msg => {
+        if (msg.role === 'user') {
+          addUserMessage(msg.content);
+        } else if (msg.role === 'assistant') {
+          addAssistantMessage(msg.content);
+        }
+      });
+    }
+  } catch {
+    // Silently fail on first load
   }
 }
 

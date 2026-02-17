@@ -154,6 +154,11 @@ startDashboard lispProc baseDir = do
           json $ object ["error" .= ("Invalid request body" :: Text)]
         Just req -> do
           let code = crCode req
+              -- Wrap in progn so swank:eval-and-grab-output evaluates ALL
+              -- top-level forms, not just the first one. Without this,
+              -- code like "(in-package :living-server) (setf ...)" would
+              -- only evaluate the in-package form.
+              wrappedCode = wrapInProgn code
 
           -- Safety check
           case safetyCheck code of
@@ -171,20 +176,26 @@ startDashboard lispProc baseDir = do
                   , "error"   .= ("Not connected to Lisp server" :: Text)
                   ]
                 Just conn -> do
-                  result <- liftIO $ swankEval conn code
+                  result <- liftIO $ swankEval conn wrappedCode
                   case result of
                     Left err -> json $ object
                       [ "success" .= False
                       , "error"   .= err
                       ]
                     Right output -> do
-                      -- Persist to file
+                      -- Persist the original code (not progn-wrapped),
+                      -- since `load` handles multiple top-level forms natively.
                       let desc = T.take 50 code
                       _ <- liftIO $ persistCode (appBaseDir state) code desc
                       json $ object
                         [ "success" .= True
                         , "output"  .= output
                         ]
+
+    -- Get chat history (for restoring on page refresh)
+    get "/api/history" $ do
+      history <- liftIO $ readTVarIO (appHistory state)
+      json $ object ["messages" .= history]
 
     -- Clear chat history
     post "/api/clear-history" $ do
@@ -337,3 +348,8 @@ readQuotedStr ('\\':c:rest) =
 readQuotedStr ('"':rest) = ([], rest)
 readQuotedStr (c:rest) =
   let (s, r) = readQuotedStr rest in (c:s, r)
+
+-- | Wrap Lisp code in (progn ...) so that swank:eval-and-grab-output
+-- evaluates all top-level forms, not just the first one.
+wrapInProgn :: Text -> Text
+wrapInProgn code = "(progn " <> code <> ")"

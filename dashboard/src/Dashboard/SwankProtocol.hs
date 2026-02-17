@@ -49,12 +49,13 @@ makeConnectionInfoForm counter =
   <> ")"
 
 -- | Build the S-expression for a Swank eval request.
--- Uses (:emacs-rex (swank:eval-and-grab-output ...) "COMMON-LISP-USER" t counter)
+-- Uses (:emacs-rex (swank:eval-and-grab-output ...) "LIVING-SERVER" t counter)
+-- Evaluating in the LIVING-SERVER package means symbols like *app* resolve correctly.
 makeEvalForm :: Text -> Int -> Text
 makeEvalForm code counter =
   "(:emacs-rex (swank:eval-and-grab-output "
   <> quoteLisp code
-  <> ") \"COMMON-LISP-USER\" t "
+  <> ") \"LIVING-SERVER\" t "
   <> T.pack (show counter)
   <> ")"
 

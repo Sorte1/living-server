@@ -25,7 +25,7 @@ buildSystemPrompt routes = T.unlines
   , ""
   , "## Rules"
   , ""
-  , "1. Always use `(in-package :living-server)` at the top of your code."
+  , "1. Your code is evaluated in the LIVING-SERVER package, so symbols like *app* resolve automatically. Do NOT include (in-package :living-server) — it is unnecessary."
   , "2. Define routes using `(setf (ningle:route *app* \"/path\" :method :GET) handler-fn)`"
   , "3. Route handlers receive a `params` alist and must return a Clack response:"
   , "   `(list status-code (list :content-type \"type\") (list \"body\"))`"
