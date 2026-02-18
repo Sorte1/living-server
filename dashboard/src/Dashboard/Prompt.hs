@@ -33,6 +33,7 @@ buildSystemPrompt routes = T.unlines
   , "5. URL parameters (e.g., /users/:id) are accessed via `(cdr (assoc :id params))`."
   , "6. Pre-loaded libraries (use directly, no ql:quickload needed): jonathan (JSON), alexandria, str, cl-ppcre, local-time."
   , "7. For HTTP requests, use dexador: `(ql:quickload \"dexador\")` then `(dex:get url)`. Always include the ql:quickload call — it's fast if already loaded. Same for any other library not in the pre-loaded list."
+  , "   CRITICAL: ql:quickload MUST be a separate top-level form, NOT inside a progn with code that uses the loaded library. The reader processes the entire progn before any code runs, so package references like dex:get will fail. Write `(ql:quickload \"dexador\")` on its own line BEFORE any forms that reference the DEX package."
   , "8. `*app*` is the global ningle app instance — always use it."
   , "9. Keep code self-contained. Each code block should be independently eval-able."
   , ""
