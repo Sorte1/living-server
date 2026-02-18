@@ -8,4 +8,5 @@
            #:*app*
            #:*server*
            #:list-routes
+           #:eval-multi
            #:server-status))
