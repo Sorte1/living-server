@@ -10,11 +10,13 @@
                "str"
                "cl-ppcre"
                "local-time"
-               "bordeaux-threads")
+               "bordeaux-threads"
+               "websocket-driver")
   :serial t
   :components ((:module "src"
                 :components ((:file "packages")
                              (:file "config")
                              (:file "routes")
+                             (:file "websocket")
                              (:file "swank")
                              (:file "server")))))

@@ -21,7 +21,8 @@
   (setf *server*
         (bt:make-thread
          (lambda ()
-           (woo:run (lack.builder:builder *app*)
+           (woo:run (make-websocket-wrapper
+                     (lack.builder:builder *app*))
                     :port *http-port*
                     :address "0.0.0.0"))
          :name "woo-server"))

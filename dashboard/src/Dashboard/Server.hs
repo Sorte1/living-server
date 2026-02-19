@@ -349,14 +349,17 @@ readQuotedStr ('"':rest) = ([], rest)
 readQuotedStr (c:rest) =
   let (s, r) = readQuotedStr rest in (c:s, r)
 
--- | Wrap Lisp code for safe eval via Swank using eval-multi.
--- eval-multi reads and evaluates one form at a time from a string.
--- This means (ql:quickload "dexador") actually runs before the reader
--- tries to read (dex:get ...), avoiding "Package DEX does not exist" errors.
--- The code string is escaped and passed as a Lisp string argument.
+-- | Wrap Lisp code for eval via Swank.
+-- Uses eval-multi (sequential read+eval) when ql:quickload is present,
+-- so new packages are available before the reader encounters their symbols.
+-- Uses progn for everything else to avoid double-escaping issues with
+-- HTML strings and other quoted content.
 wrapInProgn :: Text -> Text
-wrapInProgn code =
-  "(living-server:eval-multi " <> quoteLispString code <> ")"
+wrapInProgn code
+  | "ql:quickload" `T.isInfixOf` code =
+      "(living-server:eval-multi " <> quoteLispString code <> ")"
+  | otherwise =
+      "(handler-bind ((warning #'muffle-warning)) (progn " <> code <> "))"
 
 -- | Escape a text value as a Lisp string literal.
 quoteLispString :: Text -> Text

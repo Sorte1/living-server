@@ -9,4 +9,10 @@
            #:*server*
            #:list-routes
            #:eval-multi
-           #:server-status))
+           #:server-status
+           ;; WebSocket
+           #:add-websocket-route
+           #:remove-websocket-route
+           #:websocket-broadcast
+           #:websocket-send
+           #:*websocket-routes*))
